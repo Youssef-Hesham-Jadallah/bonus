@@ -55,4 +55,10 @@ The dataset is sourced from Zomato and contains information such as:
 ---
 
 ## 📁 Folder Structure
-
+Zomato-Restaurant-Recommender/
+├── app.py # Streamlit app
+├── model/ # Pre-trained models and similarity matrices
+├── data/ # Zomato dataset files
+├── utils.py # Helper functions
+├── requirements.txt # Python dependencies
+└── README.md # Project documentation
