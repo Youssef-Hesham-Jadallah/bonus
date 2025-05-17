@@ -7,8 +7,8 @@ from recommender import filter_and_rank
 from utils import explain_recommendation, get_map_link
 
 # Set page configuration
-st.set_page_config(page_title="Zomato Restaurant Recommender", page_icon="🍽️", layout="wide")
-st.title("🍽️ Knowledge-Based Restaurant Recommender System")
+st.set_page_config(page_title="Zomato Restaurant Recommender", page_icon="🍽", layout="wide")
+st.title("🍽 Knowledge-Based Restaurant Recommender System")
 
 # Cache data loading function
 @st.cache_data
@@ -19,71 +19,81 @@ def cached_load_and_clean_data(path):
 data_path = "zomato_recommender_project/data/zomato.csv"
 df = cached_load_and_clean_data(data_path)
 
-# Check if data is loaded
+# Validate data
 if df is None or df.empty:
-    st.error("❌ Failed to load data. Please ensure that 'data/zomato.csv' exists and is properly formatted.")
+    st.error("❌ Failed to load data. Please ensure 'data/zomato.csv' exists and is formatted correctly.")
     st.stop()
 
 # Sidebar - User Preferences
 st.sidebar.header("🎯 Set Your Preferences")
 
+# User Input Options
 cuisines = [""] + sorted(df['Primary Cuisine'].dropna().unique())
 locations = [""] + sorted(df['City'].dropna().unique())
-cuisine = st.sidebar.selectbox("🍜 Cuisine", cuisines)
-location = st.sidebar.selectbox("📍 City", locations)
-price = st.sidebar.selectbox("💰 Price Range", ["", "Low", "Medium", "High"])
-has_delivery = st.sidebar.checkbox("🚚 Online Delivery Available")
 
-# Recommend button
+cuisine = st.sidebar.selectbox("🍜 Choose Cuisine", cuisines)
+location = st.sidebar.selectbox("📍 Choose City", locations)
+price = st.sidebar.selectbox("💰 Select Price Range", ["", "Low", "Medium", "High"])
+has_delivery = st.sidebar.checkbox("🚚 Require Online Delivery")
+
+# Recommendation Trigger
 if st.sidebar.button("🔍 Recommend"):
     results = filter_and_rank(df, cuisine, location, price, has_delivery)
     st.session_state['results'] = results
 
-    if results.empty:
-        st.warning("⚠️ No matching restaurants found. Try adjusting your preferences.")
-    else:
-        st.subheader("✅ Top Matching Restaurants")
+# Display Recommendations if Available
+if 'results' in st.session_state:
+    results = st.session_state['results']
 
-        # Sorting options
-        sort_option = st.selectbox(
-            "🔽 Sort Results By",
+    if results.empty:
+        st.warning("⚠ No restaurants match your preferences. Try different filters.")
+    else:
+        st.subheader("✅ Top Restaurant Matches")
+
+        # Sorting Options
+        sort_by = st.selectbox(
+            "🔽 Sort By",
             ["Score (Default)", "Rating", "Cost"],
             key="sort_option"
         )
 
-        sort_by_column = {
+        sort_column = {
             "Score (Default)": "Score",
             "Rating": "Aggregate rating",
             "Cost": "Average Cost for two"
-        }[sort_option]
+        }[sort_by]
 
-        sorted_results = results.sort_values(by=sort_by_column, ascending=False if sort_option != "Cost" else True)
+        sorted_results = results.sort_values(
+            by=sort_column,
+            ascending=True if sort_by == "Cost" else False
+        )
 
-        # Display results
+        # Display Results
         for idx, row in sorted_results.iterrows():
             with st.container():
                 col1, col2 = st.columns([4, 1])
                 with col1:
                     st.subheader(row['Restaurant Name'])
-                    st.markdown(f"**Cuisine:** {row['Primary Cuisine'].title()} | **Rating:** {row['Aggregate rating']} ⭐")
-                    st.markdown(f"**Cost for Two:** ₹{row['Average Cost for two']} | **Votes:** {int(row['Votes'])}")
-                    st.markdown(f"**Location:** {row['City']} - {row['Locality']}")
-                    map_link = get_map_link(row['City'], row['Locality'])
-                    st.markdown(f"[📍 Open in Google Maps]({map_link})")
-                    st.markdown(f"**💡 Explanation:** _{explain_recommendation(row)}_")
+                    st.markdown(f"*Cuisine:* {row['Primary Cuisine'].title()}  \n"
+                                f"*Rating:* {row['Aggregate rating']} ⭐  \n"
+                                f"*Cost for Two:* ₹{row['Average Cost for two']}  \n"
+                                f"*Votes:* {int(row['Votes'])}  \n"
+                                f"*Location:* {row['City']} - {row['Locality']}")
+                    st.markdown(f"[📍 View on Google Maps]({get_map_link(row['City'], row['Locality'])})")
+                    st.markdown(f"💡 Why Recommended:** {explain_recommendation(row)}")
                 with col2:
-                    st.markdown("<br><br>", unsafe_allow_html=True)
+                    st.write("")  # Placeholder spacing
                     st.button("View Details", key=f"details_{idx}")
+
             st.markdown("---")
 
-        # Download button
-        csv = sorted_results.to_csv(index=False)
+        # CSV Download
         st.download_button(
-            label="⬇️ Download Recommendations",
-            data=csv,
-            file_name="recommendations.csv",
+            label="⬇ Download as CSV",
+            data=sorted_results.to_csv(index=False),
+            file_name="restaurant_recommendations.csv",
             mime="text/csv"
         )
 
-        st.success("🎉 Recommendations generated successfully!")
+        st.success("🎉 Recommendations Ready!")
         st.balloons()
